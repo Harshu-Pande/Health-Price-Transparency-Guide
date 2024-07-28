@@ -1,7 +1,7 @@
 -- After downloading the 8 csv files onto your computer, you run the code below in PostgreSQL
 -- Make sure to rename "ppo_options_" to whatever you named your downloaded csv files
 
-
+-- remember to add constraint to have a primary key of those 4 columns. 
 CREATE TABLE IF NOT EXISTS ppo_options_code (
     id TEXT PRIMARY KEY,
     billing_code_type_version TEXT,
