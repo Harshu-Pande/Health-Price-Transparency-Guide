@@ -1,0 +1,22 @@
+# Run the following code in a cloud environment to minimize downloading large files on your computer.
+# I have used Saint Louis Univeristy's pricing file as an example.
+
+# Step 1: Clone the following Github repository
+!git clone https://github.com/dolthub/data-analysis.git
+
+# Step 2 Navigate to MRFutils
+cd /content/data-analysis/transparency-in-coverage/python/mrfutils
+
+# Step 3: Install Requirements
+pip install .
+
+# Step 4: Convert to CSV
+%cd /content/data-analysis/transparency-in-coverage/python/mrfutils
+!python3 examples/example_cli.py \
+    --out-dir /content/data-analysis/transparency-in-coverage/python/mrfutils \
+    --code-file /content/data-analysis/transparency-in-coverage/python/mrfutils/data/hpt/70_shoppables.csv \
+    --npi-file /content/data-analysis/transparency-in-coverage/python/mrfutils/data/hpt/hospital_npis.csv \
+    --url https://uhc-tic-mrf.azureedge.net/public-mrf/2024-03-01/2024-03-01_United-HealthCare-Services--Inc-_Third-Party-Administrator_PS1-50_C2_in-network-rates.json.gz
+
+
+# Step 5: Once this runs (~1-2 hour runtime), download the 8 csv files produced to your computer
