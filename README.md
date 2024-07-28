@@ -4,7 +4,7 @@ Guide explaining the healthcare price transparency project and the steps to buil
 Link to Government Rule: https://www.cms.gov/priorities/key-initiatives/healthplan-price-transparency 
 
 # TLDR version:
-we are trying to build a health price comparison app using these steps: download .json file –> parse .json file –> export relevant data as .csv files –> clean .csv data in a SQL database manager –> upload cleaned data to Supabase -> build a front end on top of this database with the help of AI tools like Claude
+We are trying to build a health price comparison app using these steps: download .json file –> parse .json file –> export relevant data as .csv files –> clean .csv data in a SQL database manager –> upload cleaned data to Supabase -> build a front end on top of this database with the help of AI tools like Claude
 
 
 # What is the main problem we are solving?
