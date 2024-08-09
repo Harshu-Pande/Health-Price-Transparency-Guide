@@ -1,202 +1,51 @@
--- After downloading the 8 csv files onto your computer, you run the code below in PostgreSQL
--- Make sure to rename "ppo_options_" to whatever you named your downloaded csv files
-
--- remember to add constraint to have a primary key of those 4 columns. 
-CREATE TABLE IF NOT EXISTS ppo_options_code (
-    id TEXT PRIMARY KEY,
-    billing_code_type_version TEXT,
-    billing_code TEXT,
-    billing_code_type TEXT
-);
-
-CREATE TABLE IF NOT EXISTS ppo_options_tin (
-    id TEXT PRIMARY KEY,
-    tin_type TEXT,
-    tin_value TEXT
-);
-
-CREATE TABLE IF NOT EXISTS ppo_options_rate (
-    id TEXT PRIMARY KEY,
-    code_id TEXT,
-    rate_metadata_id TEXT,
-    negotiated_rate NUMERIC
-);
-
-CREATE TABLE IF NOT EXISTS ppo_options_rate_metadata (
-    id TEXT PRIMARY KEY,
-    billing_class TEXT,
-    negotiated_type TEXT,
-    service_code TEXT,
-    expiration_date DATE,
-    additional_information TEXT,
-    billing_code_modifier TEXT
-);
-
--- For tables without duplicates
-CREATE TABLE IF NOT EXISTS ppo_options_file (
-    id TEXT PRIMARY KEY,
-    filename TEXT,
-    reporting_entity_name TEXT,
-    reporting_entity_type TEXT,
-    plan_name TEXT,
-    plan_id_type TEXT,
-    plan_id TEXT,
-    plan_market_type TEXT,
-    last_updated_on DATE,
-    version TEXT,
-    url TEXT
-);
-
-CREATE TABLE IF NOT EXISTS ppo_options_npi_tin (
-    npi TEXT,
-    tin_id TEXT
-);
-
-CREATE TABLE IF NOT EXISTS ppo_options_tin_rate_file (
-    tin_id TEXT,
-    rate_id TEXT,
-    file_id TEXT
-);
-
--- Updated hospital prices table
-CREATE TABLE IF NOT EXISTS ppo_options_dolthub_hospital_prices (
-    enrollment_id TEXT,
-    enrollment_state TEXT,
-    provider_type_code TEXT,
-    provider_type_text TEXT,
-    npi TEXT,
-    multiple_npi_flag TEXT,
-    ccn TEXT,
-    associate_id TEXT,
-    organization_name TEXT,
-    doing_business_as_name TEXT,
-    incorporation_date TEXT,
-    incorporation_state TEXT,
-    organization_type_structure TEXT,
-    organization_other_type_text TEXT,
-    proprietary_nonprofit TEXT,
-    address_line_1 TEXT,
-    address_line_2 TEXT,
-    city TEXT,
-    state TEXT,
-    zip_code TEXT,
-    practice_location_type TEXT,
-    location_other_type_text TEXT,
-    subgroup_general TEXT,
-    subgroup_acute_care TEXT,
-    subgroup_alcohol_drug TEXT,
-    subgroup_childrens TEXT,
-    subgroup_long_term TEXT,
-    subgroup_psychiatric TEXT,
-    subgroup_rehabilitation TEXT,
-    subgroup_short_term TEXT,
-    subgroup_swing_bed_approved TEXT,
-    subgroup_psychiatric_unit TEXT,
-    subgroup_rehabilitation_unit TEXT,
-    subgroup_specialty_hospital TEXT,
-    subgroup_other TEXT,
-    subgroup_other_text TEXT
-);
-
-
-
-
-
--- From here onwards, the code below will be pasted into any python IDE. I personally use VS Code. The chuck of code below will be used to import the data from the csv files into the tables that we created in Postgres above.
-
 import psycopg2
 import csv
 import os
-
-# Database connection parameters
-DB_NAME = "options_ppo"
-DB_USER = "postgres"
-DB_PASSWORD = "harshu02"
-DB_HOST = "localhost"
-DB_PORT = "5432"
-
-# Connect to the database
-conn = psycopg2.connect(
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    port=DB_PORT
-)
-
-cur = conn.cursor()
-
-def import_csv(file_path, table_name, columns):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        csv_reader = csv.reader(f)
-        next(csv_reader)  # Skip header row
-        for row in csv_reader:
-            placeholders = ','.join(['%s'] * len(columns))
-            columns_str = ','.join(columns)
-            sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
-            cur.execute(sql, row)
-    conn.commit()
-    print(f"Imported data into {table_name}")
-
-# Import data for each table
-import_csv('ppo_options_file.csv', 'ppo_options_file', ['id', 'filename', 'reporting_entity_name', 'reporting_entity_type', 'plan_name', 'plan_id_type', 'plan_id', 'plan_market_type', 'last_updated_on', 'version', 'url'])
-import_csv('ppo_options_code.csv', 'ppo_options_code', ['id', 'billing_code_type_version', 'billing_code', 'billing_code_type'])
-import_csv('ppo_options_npi_tin.csv', 'ppo_options_npi_tin', ['npi', 'tin_id'])
-import_csv('ppo_options_tin.csv', 'ppo_options_tin', ['id', 'tin_type', 'tin_value'])
-import_csv('ppo_options_tin_rate_file.csv', 'ppo_options_tin_rate_file', ['tin_id', 'rate_id', 'file_id'])
-import_csv('ppo_options_rate.csv', 'ppo_options_rate', ['id', 'code_id', 'rate_metadata_id', 'negotiated_rate'])
-import_csv('ppo_options_rate_metadata.csv', 'ppo_options_rate_metadata', ['id', 'billing_class', 'negotiated_type', 'service_code', 'expiration_date', 'additional_information', 'billing_code_modifier'])
-
-# Special handling for hospital prices data
-with open('ppo_options_dolthub_hospital_prices.csv', 'r', encoding='utf-8') as f:
-    csv_reader = csv.reader(f)
-    next(csv_reader)  # Skip header row
-    for row in csv_reader:
-        sql = """
-        INSERT INTO ppo_options_dolthub_hospital_prices
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT DO NOTHING
-        """
-        cur.execute(sql, row)
-conn.commit()
-print("Imported data into ppo_options_dolthub_hospital_prices")
-
-# Close the database connection
-cur.close()
-conn.close()
-
-print("Data import completed")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- This chunk of code below will perform the join operation to combine the tables into a single table that can then be deployed on Supabase.
-
-
-import psycopg2
 import time
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 # Database connection parameters
-DB_NAME = "options_ppo"
+DB_NAME = "cigna_localplus_"  # Change this for different databases, use lowercase and keep a underscore " _ " at the end
 DB_USER = "postgres"
 DB_PASSWORD = "harshu02"
 DB_HOST = "localhost"
 DB_PORT = "5432"
+EXPORT_PATH = "/Users/harshupande/Library/CloudStorage/GoogleDrive-hpande@slu.edu/My Drive/price_transparency_files/Cigna_PPO"  # Change this for different databases
 
 def log_progress(message):
     print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {message}")
+
+def create_database():
+    conn = None
+    try:
+        # Connect to the default 'postgres' database to create a new database
+        conn = psycopg2.connect(
+            dbname="postgres",
+            user=DB_USER,
+            password=DB_PASSWORD,
+            host=DB_HOST,
+            port=DB_PORT
+        )
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = conn.cursor()
+        
+        # Check if the database already exists
+        cursor.execute(f"SELECT 1 FROM pg_catalog.pg_database WHERE datname = '{DB_NAME}'")
+        exists = cursor.fetchone()
+        
+        if not exists:
+            cursor.execute(f"CREATE DATABASE {DB_NAME}")
+            log_progress(f"Database '{DB_NAME}' created successfully")
+        else:
+            log_progress(f"Database '{DB_NAME}' already exists")
+    
+    except (Exception, psycopg2.Error) as error:
+        log_progress(f"Error while creating database: {error}")
+    
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
 
 def execute_query(cursor, query, commit=False):
     log_progress(f"Executing: {query[:50]}...")  # Log first 50 characters of the query
@@ -205,7 +54,222 @@ def execute_query(cursor, query, commit=False):
         cursor.connection.commit()
     log_progress("Query completed.")
 
+def create_tables(cursor):
+    table_creation_queries = [
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}code (
+            id TEXT PRIMARY KEY,
+            billing_code_type_version TEXT,
+            billing_code TEXT,
+            billing_code_type TEXT
+        );
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}tin (
+            id TEXT PRIMARY KEY,
+            tin_type TEXT,
+            tin_value TEXT
+        );
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}rate (
+            id TEXT PRIMARY KEY,
+            code_id TEXT,
+            rate_metadata_id TEXT,
+            negotiated_rate NUMERIC
+        );
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}rate_metadata (
+            id TEXT PRIMARY KEY,
+            billing_class TEXT,
+            negotiated_type TEXT,
+            service_code TEXT,
+            expiration_date DATE,
+            additional_information TEXT,
+            billing_code_modifier TEXT
+        );
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}file (
+            id TEXT PRIMARY KEY,
+            filename TEXT,
+            reporting_entity_name TEXT,
+            reporting_entity_type TEXT,
+            plan_name TEXT,
+            plan_id_type TEXT,
+            plan_id TEXT,
+            plan_market_type TEXT,
+            last_updated_on DATE,
+            version TEXT,
+            url TEXT
+        );
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}npi_tin (
+            npi TEXT,
+            tin_id TEXT
+        );
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}tin_rate_file (
+            tin_id TEXT,
+            rate_id TEXT,
+            file_id TEXT
+        );
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {DB_NAME}dolthub_hospital_prices (
+            enrollment_id TEXT,
+            enrollment_state TEXT,
+            provider_type_code TEXT,
+            provider_type_text TEXT,
+            npi TEXT,
+            multiple_npi_flag TEXT,
+            ccn TEXT,
+            associate_id TEXT,
+            organization_name TEXT,
+            doing_business_as_name TEXT,
+            incorporation_date TEXT,
+            incorporation_state TEXT,
+            organization_type_structure TEXT,
+            organization_other_type_text TEXT,
+            proprietary_nonprofit TEXT,
+            address_line_1 TEXT,
+            address_line_2 TEXT,
+            city TEXT,
+            state TEXT,
+            zip_code TEXT,
+            practice_location_type TEXT,
+            location_other_type_text TEXT,
+            subgroup_general TEXT,
+            subgroup_acute_care TEXT,
+            subgroup_alcohol_drug TEXT,
+            subgroup_childrens TEXT,
+            subgroup_long_term TEXT,
+            subgroup_psychiatric TEXT,
+            subgroup_rehabilitation TEXT,
+            subgroup_short_term TEXT,
+            subgroup_swing_bed_approved TEXT,
+            subgroup_psychiatric_unit TEXT,
+            subgroup_rehabilitation_unit TEXT,
+            subgroup_specialty_hospital TEXT,
+            subgroup_other TEXT,
+            subgroup_other_text TEXT
+        );
+        """
+    ]
+    
+    for query in table_creation_queries:
+        execute_query(cursor, query)
+
+def import_csv(cursor, file_path, table_name, columns):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        csv_reader = csv.reader(f)
+        next(csv_reader)  # Skip header row
+        for row in csv_reader:
+            placeholders = ','.join(['%s'] * len(columns))
+            columns_str = ','.join(columns)
+            sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+            cursor.execute(sql, row)
+    cursor.connection.commit()
+    log_progress(f"Imported data into {table_name}")
+
+def import_data(cursor):
+    import_csv(cursor, f'{DB_NAME}file.csv', f'{DB_NAME}file', ['id', 'filename', 'reporting_entity_name', 'reporting_entity_type', 'plan_name', 'plan_id_type', 'plan_id', 'plan_market_type', 'last_updated_on', 'version', 'url'])
+    import_csv(cursor, f'{DB_NAME}code.csv', f'{DB_NAME}code', ['id', 'billing_code_type_version', 'billing_code', 'billing_code_type'])
+    import_csv(cursor, f'{DB_NAME}npi_tin.csv', f'{DB_NAME}npi_tin', ['npi', 'tin_id'])
+    import_csv(cursor, f'{DB_NAME}tin.csv', f'{DB_NAME}tin', ['id', 'tin_type', 'tin_value'])
+    import_csv(cursor, f'{DB_NAME}tin_rate_file.csv', f'{DB_NAME}tin_rate_file', ['tin_id', 'rate_id', 'file_id'])
+    import_csv(cursor, f'{DB_NAME}rate.csv', f'{DB_NAME}rate', ['id', 'code_id', 'rate_metadata_id', 'negotiated_rate'])
+    import_csv(cursor, f'{DB_NAME}rate_metadata.csv', f'{DB_NAME}rate_metadata', ['id', 'billing_class', 'negotiated_type', 'service_code', 'expiration_date', 'additional_information', 'billing_code_modifier'])
+
+    # Special handling for hospital prices data
+    with open(f'{DB_NAME}dolthub_hospital_prices.csv', 'r', encoding='utf-8') as f:
+        csv_reader = csv.reader(f)
+        next(csv_reader)  # Skip header row
+        for row in csv_reader:
+            sql = f"""
+            INSERT INTO {DB_NAME}dolthub_hospital_prices
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+            """
+            cursor.execute(sql, row)
+    cursor.connection.commit()
+    log_progress(f"Imported data into {DB_NAME}dolthub_hospital_prices")
+
+def create_indexes(cursor):
+    index_queries = [
+        f"CREATE INDEX IF NOT EXISTS idx_tin_rate_file_rate_id ON {DB_NAME}tin_rate_file(rate_id);",
+        f"CREATE INDEX IF NOT EXISTS idx_tin_rate_file_tin_id ON {DB_NAME}tin_rate_file(tin_id);",
+        f"CREATE INDEX IF NOT EXISTS idx_rate_id ON {DB_NAME}rate(id);",
+        f"CREATE INDEX IF NOT EXISTS idx_rate_code_id ON {DB_NAME}rate(code_id);",
+        f"CREATE INDEX IF NOT EXISTS idx_tin_id ON {DB_NAME}tin(id);",
+        f"CREATE INDEX IF NOT EXISTS idx_npi_tin_tin_id ON {DB_NAME}npi_tin(tin_id);",
+        f"CREATE INDEX IF NOT EXISTS idx_npi_tin_npi ON {DB_NAME}npi_tin(npi);",
+        f"CREATE INDEX IF NOT EXISTS idx_hospitals_npi ON {DB_NAME}dolthub_hospital_prices(npi);",
+        f"CREATE INDEX IF NOT EXISTS idx_code_id ON {DB_NAME}code(id);",
+    ]
+    for query in index_queries:
+        execute_query(cursor, query)
+
+def perform_join(cursor):
+    # Drop existing table if it exists
+    execute_query(cursor, f"DROP TABLE IF EXISTS {DB_NAME}combined_healthcare_data;")
+
+    # Perform the join operation with an added primary key
+    join_query = f"""
+    CREATE TABLE {DB_NAME}combined_healthcare_data AS
+    SELECT 
+        ROW_NUMBER() OVER () AS id,
+        subquery.*
+    FROM (
+        SELECT DISTINCT ON (c.billing_code, nt.npi, t.tin_value, r.negotiated_rate, rm.billing_class, rm.billing_code_modifier)
+            c.billing_code,
+            r.negotiated_rate,
+            rm.billing_code_modifier,
+            rm.billing_class,
+            nt.npi,
+            t.tin_value,
+            h.organization_name,
+            h.city,
+            h.state,
+            h.zip_code,
+            h.address_line_1
+        FROM {DB_NAME}tin_rate_file trf
+        JOIN {DB_NAME}rate r ON r.id = trf.rate_id
+        JOIN {DB_NAME}code c ON c.id = r.code_id
+        JOIN {DB_NAME}rate_metadata rm ON rm.id = r.rate_metadata_id
+        JOIN {DB_NAME}tin t ON t.id = trf.tin_id
+        JOIN {DB_NAME}npi_tin nt ON nt.tin_id = t.id
+        LEFT JOIN {DB_NAME}dolthub_hospital_prices h ON h.npi = nt.npi
+    ) AS subquery;
+    """
+    execute_query(cursor, join_query)
+
+    # Add primary key constraint
+    execute_query(cursor, f"ALTER TABLE {DB_NAME}combined_healthcare_data ADD PRIMARY KEY (id);")
+
+    # Create indexes on the new table
+    new_index_queries = [
+        f"CREATE INDEX idx_combined_billing_code ON {DB_NAME}combined_healthcare_data(billing_code);",
+        f"CREATE INDEX idx_combined_npi ON {DB_NAME}combined_healthcare_data(npi);",
+        f"CREATE INDEX idx_combined_tin_value ON {DB_NAME}combined_healthcare_data(tin_value);",
+    ]
+    for query in new_index_queries:
+        execute_query(cursor, query)
+
+def export_table(cursor, table_name, export_path):
+    log_progress(f"Exporting {table_name} to CSV...")
+    export_query = f"COPY {table_name} TO STDOUT WITH CSV HEADER"
+    with open(os.path.join(export_path, f"{table_name}.csv"), 'w', newline='') as f:
+        cursor.copy_expert(export_query, f)
+    log_progress(f"Export of {table_name} completed.")
+
 def main():
+    # Create the database
+    create_database()
+
     conn = None
     try:
         log_progress("Connecting to the database...")
@@ -225,78 +289,44 @@ def main():
         execute_query(cursor, "SET maintenance_work_mem = '512MB';")
         execute_query(cursor, "SET max_parallel_workers_per_gather = 0;")
 
+        # Create tables
+        log_progress("Creating tables...")
+        create_tables(cursor)
+
+        # Import data
+        log_progress("Importing data...")
+        import_data(cursor)
+
         # Vacuum and analyze all tables
         log_progress("Vacuuming and analyzing tables...")
         execute_query(cursor, "VACUUM ANALYZE;")
 
         # Create indexes
         log_progress("Creating indexes...")
-        index_queries = [
-            "CREATE INDEX IF NOT EXISTS idx_tin_rate_file_rate_id ON ppo_options_tin_rate_file(rate_id);",
-            "CREATE INDEX IF NOT EXISTS idx_tin_rate_file_tin_id ON ppo_options_tin_rate_file(tin_id);",
-            "CREATE INDEX IF NOT EXISTS idx_rate_id ON ppo_options_rate(id);",
-            "CREATE INDEX IF NOT EXISTS idx_rate_code_id ON ppo_options_rate(code_id);",
-            "CREATE INDEX IF NOT EXISTS idx_tin_id ON ppo_options_tin(id);",
-            "CREATE INDEX IF NOT EXISTS idx_npi_tin_tin_id ON ppo_options_npi_tin(tin_id);",
-            "CREATE INDEX IF NOT EXISTS idx_npi_tin_npi ON ppo_options_npi_tin(npi);",
-            "CREATE INDEX IF NOT EXISTS idx_hospitals_npi ON ppo_options_dolthub_hospital_prices(npi);",
-            "CREATE INDEX IF NOT EXISTS idx_code_id ON ppo_options_code(id);",
-        ]
-        for query in index_queries:
-            execute_query(cursor, query)
+        create_indexes(cursor)
 
-        # Drop existing table if it exists
-        log_progress("Dropping existing combined_healthcare_data table if it exists...")
-        execute_query(cursor, "DROP TABLE IF EXISTS combined_healthcare_data;")
-
-        # Perform the join operation
+        # Perform join operation
         log_progress("Performing join operation...")
-        join_query = """
-        CREATE TABLE combined_healthcare_data AS
-        SELECT DISTINCT ON (c.billing_code, nt.npi, t.tin_value, r.negotiated_rate, rm.billing_class, rm.billing_code_modifier)
-            c.billing_code,
-            r.negotiated_rate,
-            rm.billing_code_modifier,
-            rm.billing_class,
-            nt.npi,
-            t.tin_value,
-            h.organization_name,
-            h.city,
-            h.state,
-            h.zip_code,
-            h.address_line_1
-        FROM ppo_options_tin_rate_file trf
-        JOIN ppo_options_rate r ON r.id = trf.rate_id
-        JOIN ppo_options_code c ON c.id = r.code_id
-        JOIN ppo_options_rate_metadata rm ON rm.id = r.rate_metadata_id
-        JOIN ppo_options_tin t ON t.id = trf.tin_id
-        JOIN ppo_options_npi_tin nt ON nt.tin_id = t.id
-        LEFT JOIN ppo_options_dolthub_hospital_prices h ON h.npi = nt.npi;
-        """
-        execute_query(cursor, join_query)
-
-        # Create indexes on the new table
-        log_progress("Creating indexes on the new table...")
-        new_index_queries = [
-            "CREATE INDEX idx_combined_billing_code ON combined_healthcare_data(billing_code);",
-            "CREATE INDEX idx_combined_npi ON combined_healthcare_data(npi);",
-            "CREATE INDEX idx_combined_tin_value ON combined_healthcare_data(tin_value);",
-        ]
-        for query in new_index_queries:
-            execute_query(cursor, query)
+        perform_join(cursor)
 
         # Vacuum and analyze the new table
         log_progress("Vacuuming and analyzing the new table...")
-        execute_query(cursor, "VACUUM ANALYZE combined_healthcare_data;")
+        execute_query(cursor, f"VACUUM ANALYZE {DB_NAME}combined_healthcare_data;")
 
         # Count rows in the new table
         log_progress("Counting rows in the new table...")
-        cursor.execute("SELECT COUNT(*) FROM combined_healthcare_data;")
+        cursor.execute(f"SELECT COUNT(*) FROM {DB_NAME}combined_healthcare_data;")
         row_count = cursor.fetchone()[0]
-        log_progress(f"Total rows in combined_healthcare_data: {row_count}")
+        log_progress(f"Total rows in {DB_NAME}combined_healthcare_data: {row_count}")
+
+        # Export the final table
+        export_table(cursor, f"{DB_NAME}combined_healthcare_data", EXPORT_PATH)
 
         log_progress("All operations completed successfully.")
 
+    except psycopg2.OperationalError as e:
+        log_progress(f"Unable to connect to the database: {e}")
+        log_progress("Please check your database credentials and ensure the database server is running.")
     except Exception as e:
         log_progress(f"An error occurred: {str(e)}")
     finally:
