@@ -1,3 +1,7 @@
+# navigate to the same directory where you saved your 8 csv files from data import. 
+# save the following python code to that same directory. 
+# It will join those 8 csv files, add a primary key, and export the resulting table as a csv file. 
+
 import psycopg2
 import csv
 import os
