@@ -1,5 +1,5 @@
 # navigate to the same directory where you saved your 8 csv files from data import. 
-# save the following python code to that same directory. 
+# save the following python script to that same directory. 
 # It will use PostgreSQL to join those 8 csv files, add a primary key, and export the resulting table as a csv file. 
 
 import psycopg2
